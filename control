@@ -1,0 +1,11 @@
+Package: com.ryannair05.peekable
+Name: Peekable
+Depends: mobilesubstrate, preferenceloader
+Version: 12.0.1
+Architecture: iphoneos-arm
+Description: 3D Touch on Non-3D-Touch Devices
+Maintainer: Ryan Nair 
+Author: Ryan Nair
+Section: Tweaks
+Conflicts : com.ioscreatix.peek-a-boo
+Replaces : com.ioscreatix.peek-a-boo
