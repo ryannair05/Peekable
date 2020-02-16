@@ -35,6 +35,11 @@ extern "C" Boolean MGGetBoolAnswer(CFStringRef);
 %property (nonatomic, retain) NSNumber *pab_force;
 %property (nonatomic, assign) BOOL shouldUsePreviousForce;
 
+- (void)_clonePropertiesToTouch:(UITouch *)touch {
+    %orig;
+    touch.pab_force = self.pab_force;
+}
+
 - (void)_setHidEvent:(IOHIDEventRef)event {
     %orig;
     self.pab_force = [NSNumber numberWithFloat:-1.0];
@@ -48,10 +53,14 @@ extern "C" Boolean MGGetBoolAnswer(CFStringRef);
 
 - (CGFloat)_pressure {
     if (![self _supportsForce]) {
-        return (CGFloat)0;
+        return 0;
     }
-    if ((CGFloat)[self.pab_force doubleValue] < 0) {
+
+    NSString* bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
+
+    if ([bundleIdentifier isEqualToString:@"com.apple.springboard"]) {
         if (self._hidEvent != nil) {
+
 
                     CGFloat densityValue = [[NSNumber numberWithFloat:IOHIDEventGetFloatValue(self._hidEvent, (IOHIDEventField)kIOHIDEventFieldDigitizerDensity)] doubleValue];
                     
@@ -62,26 +71,51 @@ extern "C" Boolean MGGetBoolAnswer(CFStringRef);
                     CGFloat radiusValue = [[NSNumber numberWithFloat:IOHIDEventGetFloatValue(self._hidEvent, (IOHIDEventField)kIOHIDEventFieldDigitizerMajorRadius)] doubleValue];
                     CGFloat qualityValue = [[NSNumber numberWithFloat:IOHIDEventGetFloatValue(self._hidEvent, (IOHIDEventField)kIOHIDEventFieldDigitizerQuality)] doubleValue];
 
-                    densityValue = (lastDensity * .35) + (densityValue*(1.4 * SENSITIVITY) * (.75));
-                    qualityValue = (lastQuality * .35) + (qualityValue*(3 * SENSITIVITY) * (.75));
-                    radiusValue = (lastRadius * .35) + (radiusValue*(2.6 * SENSITIVITY) * (.65));
+                    pressure = (((((((CGFloat)150*qualityValue)+((CGFloat)300*densityValue)))*(radiusValue+1)/3))*2.55);
 
-                    pressure = (((((((CGFloat)100*qualityValue)+((CGFloat)100*densityValue))/1.4)*(radiusValue+1))/14)*SENSITIVITY);
+                    CGFloat forceToReturn = pressure;
 
-                    lastQuality = qualityValue;
-                    lastDensity = densityValue;
-                    lastRadius = radiusValue;
-
-                    CGFloat forceToReturn = (pressure*4.5)*(pressure * 0.01);
-
-                    if (forceToReturn > 0) self.pab_force = [NSNumber numberWithFloat:forceToReturn];
-                    else self.pab_force = [NSNumber numberWithFloat:0];
+                    self.pab_force = [NSNumber numberWithFloat:forceToReturn];
                     return (CGFloat)[self.pab_force doubleValue];
-        }
-        self.pab_force = [NSNumber numberWithFloat:0];
+            }
+         
         return 0;
     }
-    return (CGFloat)[self.pab_force doubleValue];
+
+    else {
+        if ((CGFloat)[self.pab_force doubleValue] < 0) {
+            if (self._hidEvent != nil) {
+
+                        CGFloat densityValue = [[NSNumber numberWithFloat:IOHIDEventGetFloatValue(self._hidEvent, (IOHIDEventField)kIOHIDEventFieldDigitizerDensity)] doubleValue];
+                        
+                        if (densityValue == 0) {
+                            return 0;
+                        }
+
+                        CGFloat radiusValue = [[NSNumber numberWithFloat:IOHIDEventGetFloatValue(self._hidEvent, (IOHIDEventField)kIOHIDEventFieldDigitizerMajorRadius)] doubleValue];
+                        CGFloat qualityValue = [[NSNumber numberWithFloat:IOHIDEventGetFloatValue(self._hidEvent, (IOHIDEventField)kIOHIDEventFieldDigitizerQuality)] doubleValue];
+
+                        densityValue = (lastDensity * .35) + (densityValue*(1.4 * SENSITIVITY) * (.75));
+                        qualityValue = (lastQuality * .35) + (qualityValue*(3 * SENSITIVITY) * (.75));
+                        radiusValue = (lastRadius * .35) + (radiusValue*(2.6 * SENSITIVITY) * (.65));
+
+                        pressure = (((((((CGFloat)100*qualityValue)+((CGFloat)100*densityValue))/1.4)*(radiusValue+1))/14)*SENSITIVITY);
+
+                        lastQuality = qualityValue;
+                        lastDensity = densityValue;
+                        lastRadius = radiusValue;
+
+                        CGFloat forceToReturn = (pressure*4.5)*(pressure * 0.01);
+
+                        if (forceToReturn > 0) self.pab_force = [NSNumber numberWithFloat:forceToReturn];
+                        else self.pab_force = [NSNumber numberWithFloat:0];
+                        return (CGFloat)[self.pab_force doubleValue];
+            }
+            self.pab_force = [NSNumber numberWithFloat:0];
+            return 0;
+        }
+        return (CGFloat)[self.pab_force doubleValue];
+    }
 }
 %end
 
@@ -110,8 +144,12 @@ static void reloadPrefs() {
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,
         (CFNotificationCallback)reloadPrefs,
         CFSTR("com.ryannair05.peekable.prefschanged"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
-    if ((isEnabled) && (![bundleIdentifier isEqualToString:@"com.apple.springboard"])) {
-    %init;
-    %init(MGGetBoolAnswer);
+
+    if(kCFCoreFoundationVersionNumber < 1650  && ([bundleIdentifier isEqualToString:@"com.apple.springboard"])) {
+    }
+
+    else if (isEnabled) {
+            %init;
+            %init(MGGetBoolAnswer);
     }
 }
